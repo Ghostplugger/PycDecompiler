@@ -54,7 +54,7 @@ def get_pyc_magic(pyver: str) -> bytes:
 
 
 def print_banner():
-    text = f"{'=' * 55}\n    ____        __    _                         __\n   / __ \\__  __/ /   (_)___  ____ ___  ______ _/ /\n  / /_/ / / / / /   / / __ \\/ __ `/ / / / __ `/ /\n / ____/ /_/ / /___/ / / / / /_/ / /_/ / /_/ / /\n/_/    \\__, /_____/_/_/ /_/\\__, /\\__,_/\\__,_/_/\n      /____/              /____/\n{'=' * 55}\n{'P Y L I N G U A L'.center(55)}\n{'=' * 55}\n[ + ] Program:\n    -> Marshal/PYC Converter & Decompiler\n    \n[ * ] Features:\n    -> Convert Marshal to PYC (Python 3.6-3.13)\n    -> Decompile PYC to Python Source\n    \n[ </> ] Developer:\n    -> Github   : @rajveerexe\n    -> Telegram : @SoukPy\n{'=' * 55}"
+    text = f"{'=' * 55}\n    ____        __    _                         __\n   / __ \\__  __/ /   (_)___  ____ ___  ______ _/ /\n  / /_/ / / / / /   / / __ \\/ __ `/ / / / __ `/ /\n / ____/ /_/ / /___/ / / / / /_/ / /_/ / /_/ / /\n/_/    \\__, /_____/_/_/ /_/\\__, /\\__,_/\\__,_/_/\n      /____/              /____/\n{'=' * 55}\n{'P Y L I N G U A L'.center(55)}\n{'=' * 55}\n[ + ] Program:\n    -> Marshal/PYC Converter & Decompiler\n    \n[ * ] Features:\n    -> Convert Marshal to PYC (Python 3.6-3.13)\n    -> Decompile PYC to Python Source\n    \n[ </> ] Developer:\n    -> Github   : @GhostPlugger\n    -> Telegram : @Asteix\n{'=' * 55}"
     print(text)
 
 
