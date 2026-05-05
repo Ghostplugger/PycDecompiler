@@ -116,7 +116,7 @@ pip install requests
 
 ```bash
 # Clone the repository
-git clone https://github.com/rajveerexe/PycDecompiler.git
+git clone https://github.com/GhostPlugger/PycDecompiler.git
 
 # Navigate to directory
 cd PycDecompiler
@@ -132,7 +132,7 @@ python PycDecompiler.py
 
 ```bash
 # Download the script
-wget https://raw.githubusercontent.com/rajveerexe/PycDecompiler/main/PycDecompiler.py
+wget https://raw.githubusercontent.com/GhostPlugger/PycDecompiler/main/PycDecompiler.py
 
 # Install dependencies
 pip install requests
@@ -593,18 +593,8 @@ This project was inspired by:
 
 ### Developer
 
-- **GitHub**: [@rajveerexe](https://github.com/rajveerexe)
-- **Telegram**: [@SoukPy](https://t.me/SoukPy)
-
----
-
-## 📞 Support & Contact
-
-### Get Help
-
-- 🐛 **Report bugs**: [GitHub Issues](https://github.com/rajveerexe/PycDecompiler/issues)
-- 💬 **Ask questions**: [GitHub Discussions](https://github.com/rajveerexe/PycDecompiler/discussions)
-- 📧 **Contact developer**: Open an issue or reach out via Telegram
+- **GitHub**: [@rajveerexe](https://github.com/GhostPlugger)
+- **Telegram**: [@SoukPy](https://t.me/asteix)
 
 ### Community
 
@@ -612,15 +602,6 @@ Join the discussion and stay updated:
 - Star ⭐ this repository
 - Watch 👀 for updates
 - Fork 🍴 to contribute
-
----
-
-## 📈 Statistics
-
-![GitHub Stars](https://img.shields.io/github/stars/rajveerexe/PycDecompiler?style=social)
-![GitHub Forks](https://img.shields.io/github/forks/rajveerexe/PycDecompiler?style=social)
-![GitHub Issues](https://img.shields.io/github/issues/rajveerexe/PycDecompiler)
-![GitHub Pull Requests](https://img.shields.io/github/issues-pr/rajveerexe/PycDecompiler)
 
 ---
 
@@ -667,7 +648,7 @@ for f in *.pyc; do python PycDecompiler.py "$f"; done
 
 ---
 
-Made with ❤️ by **Souk**
+Made with ❤️ by **Bunny**
 
 **PycDecompiler** | 2026
 
