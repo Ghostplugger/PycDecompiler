@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![PYC Decompiler Banner](https://raw.githubusercontent.com/rajveerexe/PycDecompiler/refs/heads/main/PycDecompiler.jpg)
+![PYC Decompiler Banner](https://raw.githubusercontent.com/GhostPlugger/PycDecompiler/refs/heads/main/PycDecompiler.jpg)
 
 ### Marshal → PYC Converter & Python Bytecode Decompiler
 
