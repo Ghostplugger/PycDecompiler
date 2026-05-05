@@ -593,8 +593,8 @@ This project was inspired by:
 
 ### Developer
 
-- **GitHub**: [@rajveerexe](https://github.com/GhostPlugger)
-- **Telegram**: [@SoukPy](https://t.me/asteix)
+- **GitHub**: [@GhostPlugger](https://github.com/GhostPlugger)
+- **Telegram**: [@asteix](https://t.me/asteix)
 
 ### Community
 
