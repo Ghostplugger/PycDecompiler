@@ -6,7 +6,7 @@ import subprocess
 import marshal
 import base64
 import zlib
-import requests
+import importlib.util
 from typing import Optional
 
 class Colors:
@@ -150,110 +150,75 @@ def validate_pyc_file(file_path: str) -> None:
     if not file_path.endswith(".pyc"):
         raise FileNotPyc(f"File must have .pyc extension: {file_path}")
 
-def upload_pyc_file(file_path: str) -> str:
-    headers = {
-        "accept": "*/*",
-        "origin": "https://pylingual.io",
-        "referer": "https://pylingual.io/",
-        "user-agent": "Mozilla/5.0 (Linux; Android 10) Chrome/139 Mobile",
-    }
-    with open(file_path, "rb") as f:
-        files = {
-            "file": ("script.pyc", f, "application/x-python-code"),
-            "fileName": (None, "script.pyc"),
-        }
-        try:
-            response = requests.post(
-                "https://api.pylingual.io/upload",
-                headers=headers,
-                files=files,
-                timeout=30,
-            )
-        except requests.RequestException as e:
-            raise DecompilationError(f"Upload failed: {e}")
-    if response.status_code == 502:
-        raise DecompilationError("Service temporarily unavailable (502)")
-    if response.status_code != 200:
-        raise DecompilationError(
-            f"Upload failed with status code: {response.status_code}"
-        )
+def check_uncompyle6():
     try:
-        resp_json = response.json()
-    except ValueError:
-        raise DecompilationError("Invalid JSON response from server")
-    identifier = resp_json.get("identifier")
-    if not identifier:
-        raise DecompilationError("No identifier in response")
-    return identifier
+        import uncompyle6
+        return True
+    except ImportError:
+        return False
 
-def wait_for_decompilation(identifier: str, timeout: int = 300) -> None:
-    headers = {
-        "accept": "application/json, text/plain, */*",
-        "origin": "https://pylingual.io",
-        "referer": "https://pylingual.io/",
-        "user-agent": "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/139 Mobile Safari/537.36",
-    }
-    start_time = time.time()
-    attempt = 0
-    while True:
-        if time.time() - start_time > timeout:
-            raise DecompilationError("Decompilation timeout exceeded")
-        attempt += 1
-        elapsed = time.time() - start_time
-        try:
-            response = requests.get(
-                "https://api.pylingual.io/get_progress",
-                params={"identifier": identifier},
-                headers=headers,
-                timeout=10,
-            )
-            stage = response.json().get("stage")
-            if stage == "done":
-                print(
-                    f"{Colors.GREEN}[ ✓ ]{Colors.END} Decompilation complete ({Colors.CYAN}Attempts: {attempt}{Colors.END}, {Colors.YELLOW}Time: {elapsed:.2f}s{Colors.END})"
-                )
-                break
-            elif stage == "error":
-                raise DecompilationError("Decompilation failed on server")
-            else:
-                print(f"{Colors.BLUE}[ {attempt} ]{Colors.END} Stage: {Colors.PURPLE}{stage}{Colors.END} | Elapsed: {Colors.YELLOW}{elapsed:.1f}s{Colors.END}")
-                time.sleep(1.5)
-        except requests.RequestException as e:
-            raise DecompilationError(f"Progress check failed: {e}")
-
-def retrieve_decompiled_code(identifier: str) -> str:
-    headers = {
-        "accept": "application/json, text/plain, */*",
-        "origin": "https://pylingual.io",
-        "referer": "https://pylingual.io/",
-        "user-agent": "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/139 Mobile Safari/537.36",
-    }
+def install_uncompyle6():
+    print(f"{Colors.BLUE}[ * ]{Colors.END} Installing uncompyle6...")
     try:
-        response = requests.get(
-            "https://api.pylingual.io/view_chimera",
-            params={"identifier": identifier},
-            headers=headers,
-            timeout=30,
-        )
-        decoded_code = (
-            response.json()
-            .get("editor_content", {})
-            .get("file_raw_python", {})
-            .get("editor_content")
-        )
-        if not decoded_code:
-            raise DecompilationError("No decompiled code in response")
-        return decoded_code
-    except requests.RequestException as e:
-        raise DecompilationError(f"Failed to retrieve code: {e}")
+        subprocess.run([sys.executable, "-m", "pip", "install", "uncompyle6"], 
+                      capture_output=True, text=True)
+        return check_uncompyle6()
+    except Exception as e:
+        print(f"{Colors.RED}[ ! ]{Colors.END} Failed to install uncompyle6: {e}")
+        return False
 
-def save_decompiled_code(original_file: str, code: str) -> str:
-    base_name = os.path.basename(original_file)
+def decompile_pyc_local(file_path: str) -> str:
+    if not check_uncompyle6():
+        print(f"{Colors.YELLOW}[ * ]{Colors.END} uncompyle6 not found. Installing...")
+        if not install_uncompyle6():
+            raise DecompilationError("uncompyle6 is required for decompilation. Please install it manually: pip install uncompyle6")
+    
+    base_name = os.path.basename(file_path)
     output_name = "decoded_" + base_name.replace(".pyc", ".py")
-    output_path = os.path.join(os.path.dirname(original_file) or ".", output_name)
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(code)
-    return output_path
+    output_path = os.path.join(os.path.dirname(file_path) or ".", output_name)
+    
+    print(f"{Colors.BLUE}[ * ]{Colors.END} Decompiling using uncompyle6...")
+    
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "uncompyle6", "-o", output_path, file_path],
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode != 0:
+            import uncompyle6
+            import struct
+            import dis
+            import tempfile
+            
+            print(f"{Colors.BLUE}[ * ]{Colors.END} Trying alternative decompilation method...")
+            
+            with open(file_path, 'rb') as f:
+                magic = f.read(4)
+                bit_field = f.read(4)
+                timestamp = f.read(4)
+                size = f.read(4)
+                code_obj = marshal.load(f)
+            
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as tmp:
+                tmp_path = tmp.name
+            
+            uncompyle6.decompile_file(open(file_path, 'rb'), open(tmp_path, 'w'))
+            
+            with open(tmp_path, 'r') as f:
+                code = f.read()
+            
+            os.unlink(tmp_path)
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(code)
+        
+        print(f"{Colors.GREEN}[ ✓ ]{Colors.END} Decompiled successfully!")
+        return output_path
+        
+    except Exception as e:
+        raise DecompilationError(f"Decompilation failed: {e}")
 
 def decompile_pyc(file_path: str) -> None:
     total_start_time = time.time()
@@ -261,11 +226,9 @@ def decompile_pyc(file_path: str) -> None:
         print(f"\n{Colors.BLUE}[ * ]{Colors.END} Processing: {Colors.CYAN}{file_path}{Colors.END}")
         validate_pyc_file(file_path)
         print(f"{Colors.GREEN}[ ✓ ]{Colors.END} File validated")
-        identifier = upload_pyc_file(file_path)
-        print(f"{Colors.GREEN}[ ✓ ]{Colors.END} Uploaded with identifier: {Colors.YELLOW}{identifier}{Colors.END}")
-        wait_for_decompilation(identifier)
-        code = retrieve_decompiled_code(identifier)
-        output_path = save_decompiled_code(file_path, code)
+        
+        output_path = decompile_pyc_local(file_path)
+        
         total_time = time.time() - total_start_time
         print(f"{Colors.GREEN}[ ✓ ]{Colors.END} Decompiled code saved to: {Colors.CYAN}{output_path}{Colors.END}")
         print(f"{Colors.GREEN}[ ✓ ]{Colors.END} Total execution time: {Colors.YELLOW}{total_time:.2f}s{Colors.END}")
