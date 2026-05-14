@@ -7,6 +7,7 @@ import marshal
 import base64
 import zlib
 import importlib.util
+import tempfile
 from typing import Optional
 
 class Colors:
@@ -167,58 +168,132 @@ def install_uncompyle6():
         print(f"{Colors.RED}[ ! ]{Colors.END} Failed to install uncompyle6: {e}")
         return False
 
+def decompile_with_pycdc(file_path: str, output_path: str) -> bool:
+    try:
+        import urllib.request
+        import zipfile
+        import stat
+        
+        pycdc_path = os.path.join(tempfile.gettempdir(), "pycdc")
+        
+        if not os.path.exists(pycdc_path):
+            print(f"{Colors.BLUE}[ * ]{Colors.END} Downloading pycdc...")
+            if sys.platform == "win32":
+                url = "https://github.com/zrax/pycdc/releases/download/v1.0/pycdc.exe"
+                pycdc_exe = os.path.join(pycdc_path, "pycdc.exe")
+            else:
+                url = "https://github.com/zrax/pycdc/releases/download/v1.0/pycdc_linux"
+                pycdc_exe = os.path.join(pycdc_path, "pycdc")
+            
+            os.makedirs(pycdc_path, exist_ok=True)
+            urllib.request.urlretrieve(url, pycdc_exe)
+            if sys.platform != "win32":
+                os.chmod(pycdc_exe, os.stat(pycdc_exe).st_mode | stat.S_IEXEC)
+        
+        result = subprocess.run([pycdc_exe, file_path], capture_output=True, text=True)
+        
+        if result.returncode == 0 and result.stdout:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(result.stdout)
+            return True
+        return False
+    except Exception as e:
+        return False
+
 def decompile_pyc_local(file_path: str) -> str:
-    if not check_uncompyle6():
-        print(f"{Colors.YELLOW}[ * ]{Colors.END} uncompyle6 not found. Installing...")
-        if not install_uncompyle6():
-            raise DecompilationError("uncompyle6 is required for decompilation. Please install it manually: pip install uncompyle6")
-    
     base_name = os.path.basename(file_path)
     output_name = "decoded_" + base_name.replace(".pyc", ".py")
     output_path = os.path.join(os.path.dirname(file_path) or ".", output_name)
     
-    print(f"{Colors.BLUE}[ * ]{Colors.END} Decompiling using uncompyle6...")
+    print(f"{Colors.BLUE}[ * ]{Colors.END} Decompiling PYC file...")
     
     try:
-        result = subprocess.run(
-            [sys.executable, "-m", "uncompyle6", "-o", output_path, file_path],
-            capture_output=True,
-            text=True
-        )
+        with open(file_path, 'rb') as f:
+            magic = f.read(4)
+            bit_field = f.read(4)
+            timestamp = f.read(4)
+            size = f.read(4)
+            code_obj = marshal.load(f)
         
-        if result.returncode != 0:
+        import dis
+        import types
+        
+        temp_py_path = output_path
+        
+        if check_uncompyle6():
             import uncompyle6
-            import struct
-            import dis
-            import tempfile
+            import io
             
-            print(f"{Colors.BLUE}[ * ]{Colors.END} Trying alternative decompilation method...")
+            print(f"{Colors.BLUE}[ * ]{Colors.END} Using uncompyle6...")
+            out = io.StringIO()
+            uncompyle6.decompile(3.8, code_obj, out)
+            decompiled_code = out.getvalue()
             
-            with open(file_path, 'rb') as f:
-                magic = f.read(4)
-                bit_field = f.read(4)
-                timestamp = f.read(4)
-                size = f.read(4)
-                code_obj = marshal.load(f)
+            with open(temp_py_path, 'w', encoding='utf-8') as f:
+                f.write(decompiled_code)
             
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as tmp:
-                tmp_path = tmp.name
-            
-            uncompyle6.decompile_file(open(file_path, 'rb'), open(tmp_path, 'w'))
-            
-            with open(tmp_path, 'r') as f:
-                code = f.read()
-            
-            os.unlink(tmp_path)
-            
-            with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(code)
+            if os.path.getsize(temp_py_path) > 100:
+                print(f"{Colors.GREEN}[ ✓ ]{Colors.END} Successfully decompiled with uncompyle6!")
+                return output_path
         
-        print(f"{Colors.GREEN}[ ✓ ]{Colors.END} Decompiled successfully!")
+        print(f"{Colors.YELLOW}[ * ]{Colors.END} Trying pycdc...")
+        if decompile_with_pycdc(file_path, temp_py_path):
+            if os.path.getsize(temp_py_path) > 100:
+                print(f"{Colors.GREEN}[ ✓ ]{Colors.END} Successfully decompiled with pycdc!")
+                return output_path
+        
+        print(f"{Colors.BLUE}[ * ]{Colors.END} Extracting raw code object...")
+        with open(temp_py_path, 'w', encoding='utf-8') as f:
+            f.write("# Decompiled code object\n\n")
+            f.write("import marshal\n\n")
+            f.write(f"# Code object extracted from {file_path}\n")
+            f.write("# This is the raw code object, manual analysis needed\n\n")
+            f.write("code_obj = " + repr(code_obj) + "\n\n")
+            f.write("# To execute this code object:\n")
+            f.write("# exec(code_obj)\n")
+        
+        print(f"{Colors.YELLOW}[ ! ]{Colors.END} Partial decompilation - code object extracted")
         return output_path
         
     except Exception as e:
-        raise DecompilationError(f"Decompilation failed: {e}")
+        import dis
+        
+        print(f"{Colors.BLUE}[ * ]{Colors.END} Extracting bytecode with dis...")
+        
+        with open(file_path, 'rb') as f:
+            f.read(12)
+            try:
+                code_obj = marshal.load(f)
+            except:
+                f.seek(0)
+                code_obj = marshal.load(f)
+        
+        temp_py_path = output_path
+        
+        with open(temp_py_path, 'w', encoding='utf-8') as f:
+            f.write(f"# Bytecode extracted from {file_path}\n")
+            f.write("# This is low-level bytecode representation\n\n")
+            f.write("import dis\nimport marshal\n\n")
+            f.write("code_obj = " + repr(code_obj) + "\n\n")
+            f.write("# Bytecode disassembly:\n")
+            f.write("# dis.dis(code_obj)\n\n")
+            
+            original_stdout = sys.stdout
+            from io import StringIO
+            dis_output = StringIO()
+            sys.stdout = dis_output
+            try:
+                dis.dis(code_obj)
+            finally:
+                sys.stdout = original_stdout
+            
+            f.write("# DISASSEMBLY:\n")
+            for line in dis_output.getvalue().split('\n'):
+                f.write(f"# {line}\n")
+        
+        print(f"{Colors.YELLOW}[ ! ]{Colors.END} Bytecode extracted to {temp_py_path}")
+        print(f"{Colors.RED}[ ! ]{Colors.END} Full decompilation failed - bytecode extracted for manual analysis")
+        return output_path
 
 def decompile_pyc(file_path: str) -> None:
     total_start_time = time.time()
@@ -230,7 +305,7 @@ def decompile_pyc(file_path: str) -> None:
         output_path = decompile_pyc_local(file_path)
         
         total_time = time.time() - total_start_time
-        print(f"{Colors.GREEN}[ ✓ ]{Colors.END} Decompiled code saved to: {Colors.CYAN}{output_path}{Colors.END}")
+        print(f"{Colors.GREEN}[ ✓ ]{Colors.END} Output saved to: {Colors.CYAN}{output_path}{Colors.END}")
         print(f"{Colors.GREEN}[ ✓ ]{Colors.END} Total execution time: {Colors.YELLOW}{total_time:.2f}s{Colors.END}")
     except FileNotFoundError as e:
         print(f"{Colors.RED}[ ! ]{Colors.END} File Error: {e}")
